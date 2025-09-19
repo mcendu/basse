@@ -1,7 +1,7 @@
 # basse
-`basse` is a blazingly fast Base64 encoder and decoder using SIMD
-technology. `libbasse` is the library for Base64 encoding and decoding
-powering `basse`.
+`basse` (/beɪs/) is a blazingly fast Base64 encoder and decoder using SIMD
+technology. `libbasse` is the Base64 encoding and decoding library powering
+`basse`.
 
 ## Building
 Build prerequisites:
