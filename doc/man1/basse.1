@@ -28,10 +28,9 @@
 .Sh DESCRIPTION
 The
 .Nm
-utility encodes or decodes
-.Ar infile ,
-or standard input, in Base64 to standard output.
-The
+utility encodes or decodes a binary file from and to ASCII according to the
+rules of Base64, as specified by RFC 4648, allowing binary data to be
+transmitted over ASCII-only protocols like e\-mail. The
 .Nm
 utility utilizes SIMD capabilities of the processor, if available, for
 fast encoding and decoding.
@@ -41,7 +40,7 @@ If
 is not specified, or if
 .Ar infile
 is
-.Ql - ,
+.Ql \- ,
 .Nm
 reads standard input.
 .Pp
@@ -66,7 +65,9 @@ is positive, wrap encoded output after
 .Ar column .
 If
 .Ar column
-is zero or negative, do not wrap encoded output. Ignored if the
+is zero or negative, do not wrap encoded output. By default,
+.Nm
+wraps after 76 columns. Ignored if the
 .Fl d
 flag is used.
 .El
@@ -83,7 +84,6 @@ The
 utility exits 0 on success, and >0 if an error occurs.
 .Sh SEE ALSO
 .Lk "https://www.rfc-editor.org/rfc/rfc4648" "RFC 4648" .
-.Pp
 .Rs
 .%A W. Mu\(/la
 .%A D. Lemire
