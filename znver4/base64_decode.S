@@ -148,7 +148,6 @@ base64_decode_main_znver4:
 	.p2align	3, 0x90
 .Llast:
 	# shortcut if zero bytes left
-	mov		eax, 1
 	test		esi, esi
 	jz		.Lnoinput
 
