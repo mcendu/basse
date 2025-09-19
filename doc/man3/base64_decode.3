@@ -1,0 +1,293 @@
+.\" Copyright (c) 2025 Du Yijie.
+.\"
+.\" Permission is granted to copy, distribute and/or modify this document
+.\" under the terms of the GNU Free Documentation License, Version 1.3
+.\" or any later version published by the Free Software Foundation;
+.\" with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+.\"
+.\" You should have received a copy of the GNU Free Documentation License
+.\" along with this document; if not, see <https://www.gnu.org/licenses/>.
+.Dd September 19, 2025
+.Dt BASE64_DECODE 3
+.Os
+.Sh NAME
+.Nm base64_decode
+.Nd decode Base64
+.Sh LIBRARY
+.Lb libbasse
+.Sh SYNOPSIS
+.In base64.h
+.Vt struct base64_decoder ;
+.Ft "bool"
+.Fo base64_decode
+.Fa "struct base64_decoder *restrict ctx" "const char *restrict in" "size_t inlen"
+.Fa "char *restrict out" "size_t *restrict outlen"
+.Fc
+.Ft "size_t"
+.Fn base64_decoder_size
+.Fd #define BASE64_MAX_DECODER_SIZE 16384
+.Ft "void"
+.Fn base64_decoder_init "struct base64_decoder *ctx"
+.Sh DESCRIPTION
+The
+.Fn base64_decode
+function decodes
+.Fa inlen
+bytes of Base64 data, as defined by RFC 4648, from buffer
+.Fa in
+into buffer
+.Fa out .
+.Fa *outlen ,
+at the time of call, indicates the maximum number of bytes that can be
+written to buffer
+.Fa out .
+If buffer
+.Fa out
+does not have enough space to fully decode buffer
+.Fa in ,
+the
+.Fn base64_decode
+function will decode as much data as possible, truncating its output to
+the nearest multiple of 3 bytes rounded down.
+.Pp
+If
+.Fa ctx
+is not
+.Dv NULL ,
+The
+.Fn base64_decode
+function ignores newlines
+.Ql ( \en
+and
+.Ql \er )
+in buffer
+.Fa in .
+In addition, if buffer
+.Fa in
+cannot be fully decoded because the number of characters, sans newlines,
+in buffer
+.Fa in
+is not divisible by 4, the undecoded characters will be stored in
+.Fa ctx .
+Calling the
+.Fn base64_decode
+function again with further data in this case allows these characters to
+be decoded along with the new data.
+.Pp
+If
+.Fa ctx
+is
+.Dv NULL ,
+the
+.Fn base64_decode
+function decodes buffer
+.Fa in
+as a single unit. In such case, the
+.Fn base64_decode
+function treats newlines as illegal characters, and also fails when the
+length of
+.Fa in
+is not a multiple of 4.
+.Pp
+The
+.Fn base64_decoder_size
+function obtains the size of a
+.Vt struct base64_decoder
+object in bytes, for use with memory allocation routines such as
+.Xr malloc 3 .
+.Pp
+The
+.Vt BASE64_MAX_DECODER_SIZE
+macro indicates the maximum size of a
+.Vt struct base64_decoder .
+It is also the largest value that is possibly returned by the
+.Fn base64_decoder_size
+function. This is intended to be used in environments where
+.Xr malloc 3
+is unavailable or is discouraged from use.
+.Pp
+The
+.Fn base64_decoder_init
+function initializes buffer
+.Fa ctx
+for use with the
+.Fn base64_decode
+function. The size of buffer
+.Fa ctx ,
+in bytes, must not be smaller than
+.Vt BASE64_MAX_DECODER_SIZE
+for static allocations, or the return value of
+.Fn base64_decoder_size
+otherwise, and must satisfy the alignment requirement of
+.Vt size_t .
+.Sh RETURN VALUES
+The
+.Fn base64_decode
+function returns
+.Dv true
+if no illegal characters are detected in the buffer
+.Fa in .
+Otherwise, it returns
+.Dv false .
+The number of bytes written to buffer
+.Fa out
+is stored in
+.Fa *outlen ,
+regardless of whether the
+.Fn base64_decode
+function succeeds.
+.Pp
+The
+.Fn base64_decoder_size
+function returns the size in bytes required by a
+.Vt struct base64_decoder
+object.
+.Pp
+The
+.Fn base64_decoder_init
+function does not return a value.
+.Sh EXAMPLES
+The following program, when compiled and executed, writes
+.Ql hello, world
+to
+.Va stdout .
+.Bd -literal -offset indent
+.\" This is free and unencumbered software released into the public domain.
+.\"
+.\" Anyone is free to copy, modify, publish, use, compile, sell, or
+.\" distribute this software, either in source code form or as a compiled
+.\" binary, for any purpose, commercial or non-commercial, and by any
+.\" means.
+.\"
+.\" In jurisdictions that recognize copyright laws, the author or authors
+.\" of this software dedicate any and all copyright interest in the
+.\" software to the public domain. We make this dedication for the benefit
+.\" of the public at large and to the detriment of our heirs and
+.\" successors. We intend this dedication to be an overt act of
+.\" relinquishment in perpetuity of all present and future rights to this
+.\" software under copyright law.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\"
+.\" For more information, please refer to <https://unlicense.org>
+#include <base64.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(void)
+{
+    static const char in[] = "aGVsbG8sIHdvcmxkCg==";
+    char buf[16];
+
+    struct base64_decoder *dec = malloc(base64_decoder_size());
+    if (!dec) return 1;
+    base64_decoder_init(dec);
+
+    size_t outlen = sizeof(buf);
+    base64_decode(dec, in, strlen(in), buf, &outlen);
+    printf("%.*s", (int)outlen, buf);
+
+    free(dec);
+    return 0;
+}
+.Ed
+.Pp
+Note the format string passed to
+.Xr printf 3 ;
+unlike
+.Xr base64_encode 3 ,
+the
+.Fn base64_decode
+function does not attempt to null
+.Ql ( \e0 )
+terminate its output, so explicitly specifying the length is necessary.
+.Pp
+The following example allocates the decoder object statically; a C11
+compiler, like
+.Xr gcc 1
+4.7 or later, is required to compile this example.
+.Bd -literal -offset indent
+.\" This is free and unencumbered software released into the public domain.
+.\"
+.\" Anyone is free to copy, modify, publish, use, compile, sell, or
+.\" distribute this software, either in source code form or as a compiled
+.\" binary, for any purpose, commercial or non-commercial, and by any
+.\" means.
+.\"
+.\" In jurisdictions that recognize copyright laws, the author or authors
+.\" of this software dedicate any and all copyright interest in the
+.\" software to the public domain. We make this dedication for the benefit
+.\" of the public at large and to the detriment of our heirs and
+.\" successors. We intend this dedication to be an overt act of
+.\" relinquishment in perpetuity of all present and future rights to this
+.\" software under copyright law.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\"
+.\" For more information, please refer to <https://unlicense.org>
+#include <base64.h>
+#include <stdalign.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+    static const char in[] = "aGVsbG8sIHdvcmxkCg==";
+    char buf[16];
+
+    /* Because `struct base64_decoder` is opaque, you cannot
+       directly create one statically. You should create a
+       `BASE64_MAX_DECODER_SIZE`-sized buffer with `size_t`
+       alignment, create a pointer to it, then cast the
+       pointer to the right type. */
+    static alignas(size_t) char dbuf[BASE64_MAX_DECODER_SIZE];
+    struct base64_decoder *dec = (struct base64_decoder *)dbuf;
+    base64_decoder_init(dec);
+
+    size_t outlen = sizeof(buf);
+    base64_decode(dec, in, strlen(in), buf, &outlen);
+    printf("%.*s", (int)outlen, buf);
+    return 0;
+}
+.Ed
+.Sh CAVEATS
+The behavior is undefined if
+.Fn base64_decode
+is called with
+.Fa ctx
+pointing to an uninitialized object, or with
+.Fa outlen
+pointing to
+.Dv NULL
+or read only memory.
+.Pp
+Due to performance considerations, when the
+.Fn base64_decode
+function fails,
+.Fa *outlen
+does not necessarily indicate the exact position of the first illegal
+character in buffer
+.Fa in .
+.Pp
+Usage of
+.Xr alloca 3
+to allocate a
+.Vt struct base64_decoder
+is discouraged.
+.Sh SEE ALSO
+.Xr base64_encode 3 ,
+.Pp
+.Lk "https://www.rfc-editor.org/rfc/rfc4648" "RFC 4648"
