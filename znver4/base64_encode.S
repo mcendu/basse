@@ -42,21 +42,13 @@ base64_encode_znver4:
 	prefetchnta	[rdi]
 	prefetchnta	[rdx]
 
-	# vpexpandb mask
-	mov		rax, 0x7777777777777777
-	kmovq		k1, rax
-	# constants for swizzling 3-byte units into base64 units
-	mov		r8d, 0x0fc0fc00  # char 0 and char 2 mask
-	mov		r9d, 0x003f03f0  # char 1 and char 3 mask
-	mov		r10d, 0x0006000a # char 0 and char 2 shift
-	mov		r11d, 0x00080004 # char 1 and char 3 shift
+	mov		rax, 0x0000ffffffffffff # load mask
+	mov		r8, 0x20262c3200060c12  # multishift mask
 
+	kmovq		k1, rax
 	vmovdqa64	zmm9, [rip+chars]
-	vbroadcasti32x4	zmm11, [rip+seq_shuffle]
-	vpbroadcastd	zmm12, r8d
-	vpbroadcastd	zmm13, r9d
-	vpbroadcastd	zmm14, r10d
-	vpbroadcastd	zmm15, r11d
+	vmovdqa64	zmm10, [rip+permute_mask]
+	vpbroadcastq	zmm11, r8
 
 	cmp		rsi, 48
 	jb		.Llast
@@ -69,14 +61,9 @@ base64_encode_znver4:
 	# the masks and shifts used to process 3-byte units into
 	# base64 units.
 .macro	encode_block	inptr
-	vpexpandb	zmm0 {k1}{z}, [\inptr]
-	vpshufb		zmm0, zmm0, zmm11
-	# 11112222 22333333 00000011 11112222
-	vpandd		zmm1, zmm0, zmm12
-	vpandd		zmm2, zmm0, zmm13
-	vpsrlvw		zmm1, zmm1, zmm14
-	vpsllvw		zmm2, zmm2, zmm15
-	vpord		zmm0, zmm1, zmm2
+	vmovdqu8	zmm0 {k1}{z}, [\inptr]
+	vpermb		zmm0, zmm10, zmm0
+	vpmultishiftqb	zmm0, zmm11, zmm0
 	vpermb		zmm0, zmm0, zmm9
 	# final encoded form of 48 bytes in zmm0
 .endm
@@ -248,14 +235,22 @@ chars:
 	.ascii		"QRSTUVWXYZabcdef"
 	.ascii		"ghijklmnopqrstuv"
 	.ascii		"wxyz0123456789+/"
+permute_mask:
+	# [2]      [1]      [0]         [2]      [1]      [0]
+	# 22333333 11112222 00000011 -> 00000011 11112222 22333333
+	.byte		2, 1, 0, -1, 5, 4, 3, -1
+	.byte		8, 7, 6, -1, 11, 10, 9, -1
+	.byte		14, 13, 12, -1, 17, 16, 15, -1
+	.byte		20, 19, 18, -1, 23, 22, 21, -1
+	.byte		26, 25, 24, -1, 29, 28, 27, -1
+	.byte		32, 31, 30, -1, 35, 34, 33, -1
+	.byte		38, 37, 36, -1, 41, 40, 39, -1
+	.byte		44, 43, 42, -1, 47, 46, 45, -1
 chars_url:
 	.ascii		"ABCDEFGHIJKLMNOP"
 	.ascii		"QRSTUVWXYZabcdef"
 	.ascii		"ghijklmnopqrstuv"
 	.ascii		"wxyz0123456789-_"
-seq_shuffle:
-	.long		0x01020001, 0x05060405, 0x090a0809, 0x0d0e0c0d
-	.p2align	5, 0x0
 	# struct padding_table_entry {
 	#	uint32_t pad;
 	#	uint32_t mask;

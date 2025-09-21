@@ -75,16 +75,15 @@ base64_decode_main_znver4:
 	# zmm14-15: ascii to raw value mapping
 	# returns in zmm0, clobbers zmm1-zmm7, rax, r8
 .macro	decode_block	mask
-	vpxor		xmm1, xmm1, xmm1
-
-	# check for 0x80-0xff
-	vpcmpltb	k0 \mask , zmm0, zmm1
+	vmovdqa64	zmm1, zmm0
 	# lookup
 	vpermi2b	zmm0, zmm14, zmm15
-	# check for bytes mapping nowhere
-	vpcmpltb	k1 \mask , zmm0, zmm1
-	korq		k0, k0, k1
-	# reject invalid input
+	# check for illegal bytes
+	vporq		zmm1, zmm1, zmm0
+	vpmovb2m	k0, zmm1
+.ifnb	\mask
+	kandq		k0, k0, \mask
+.endif
 	ktestq		k0, k0
 	jnz		.Lreject
 
@@ -209,7 +208,7 @@ base64_decode_main_znver4:
 	sub		r13, r12
 
 .Ldecode_last:
-	decode_block	{k6}
+	decode_block	k6
 
 	# output
 	vpcompressb	zmm0 {k7}{z}, zmm0

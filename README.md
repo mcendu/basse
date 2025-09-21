@@ -66,7 +66,9 @@ coreutils is used.
 
 ## Acknowledgements
 This program is based on the algorithms outlined in [Faster Base64 Encoding
-and Decoding Using AVX2 Instructions](https://doi.org/10.1145/3132709).
+and Decoding Using AVX2 Instructions](https://doi.org/10.1145/3132709) and
+[Base64 encoding and decoding at almost the speed of a memory
+copy](https://doi.org/10.1002/spe.2777).
 
 The handling of newlines in the Base64 decoding process is based on the
 process outlined in [Daniel Lemire]'s blog post, ["How quickly can you
