@@ -15,6 +15,7 @@
 	# License along with this library; if not, see
 	# <https://www.gnu.org/licenses/>.
 	.intel_syntax	noprefix
+	# Based on techniques from <https://doi.org/10.1145/3132709>.
 
 #include "base64_decode.h"
 

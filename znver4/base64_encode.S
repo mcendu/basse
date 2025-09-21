@@ -16,7 +16,7 @@
 	# License along with this library; if not, see
 	# <https://www.gnu.org/licenses/>.
 	.intel_syntax	noprefix
-
+	# Based on techniques from <https://doi.org/10.1002/spe.2777>.
 
 	# void base64_encode_znver4 (const char *restrict in, size_t inlen,
 	#                            char *restrict out, size_t outlen);
