@@ -17,7 +17,7 @@ project(
     'c',
     version: '0.1.0',
     meson_version: '>=1.0.0',
-    default_options: ['c_std=gnu23']
+    default_options: ['c_std=gnu11']
 )
 
 if host_machine.system() != 'linux'
