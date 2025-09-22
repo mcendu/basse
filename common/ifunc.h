@@ -51,12 +51,23 @@ extern bool base64_decode_generic (struct base64_decoder *restrict ctx,
                                    char *restrict out,
                                    size_t *restrict outlen);
 
+#ifdef __x86_64__
+
 /* Functions for x86-64 processors supporting SSSE3. */
 
 extern void base64_encode_core2 (const char *restrict in, size_t inlen,
                                  char *restrict out, size_t outlen);
 extern void base64url_encode_core2 (const char *restrict in, size_t inlen,
                                     char *restrict out, size_t outlen);
+
+/* Functions for x86-64 processors supporting SSE4.1 + POPCNT. */
+
+extern size_t base64_decoder_size_nehalem ();
+extern void base64_decoder_init_nehalem (struct base64_decoder *restrict ctx);
+extern bool base64_decode_nehalem (struct base64_decoder *restrict ctx,
+                                   const char *restrict in, size_t inlen,
+                                   char *restrict out,
+                                   size_t *restrict outlen);
 
 /* Functions for x86-64 processors supporting AVX2. */
 
@@ -84,5 +95,7 @@ extern void base64_decoder_init_znver4 (struct base64_decoder *restrict ctx);
 extern bool base64_decode_znver4 (struct base64_decoder *restrict ctx,
                                   const char *restrict in, size_t inlen,
                                   char *restrict out, size_t *restrict outlen);
+
+#endif /* __x86_64__ */
 
 #endif /* !IFUNC_H */

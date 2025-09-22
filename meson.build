@@ -43,6 +43,7 @@ subdir('generic')
 
 if host_machine.cpu_family() == 'x86_64'
     subdir('core2')
+    subdir('nehalem')
     subdir('haswell')
     subdir('znver4')
 endif

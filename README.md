@@ -58,6 +58,7 @@ Optimized Base64 encoding is available on the following processors:
 
 Optimized Base64 decoding is available on the following processors:
 
+  - Intel&reg; Core&trade; i7-920 and better, using SSE4.1
   - Intel&reg; Core&trade; i3-4120 and better, using AVX2
   - AMD&reg; Ryzen&trade; 5 7600X and better, using AVX512
 

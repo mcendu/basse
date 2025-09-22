@@ -77,6 +77,7 @@ test_decode_partial (base64_decode_function decode,
 int
 main (void)
 {
+#ifdef __x86_64__
   __builtin_cpu_init ();
 
   if (__builtin_cpu_supports ("avx512vbmi2"))
@@ -94,6 +95,15 @@ main (void)
       test_decode_partial (base64_decode_haswell, base64_decoder_size_haswell,
                            base64_decoder_init_haswell);
     }
+
+  if (__builtin_cpu_supports ("sse4.1") && __builtin_cpu_supports("popcnt"))
+    {
+      test_decode (base64_decode_nehalem, base64_decoder_size_nehalem,
+                   base64_decoder_init_nehalem);
+      test_decode_partial (base64_decode_nehalem, base64_decoder_size_nehalem,
+                           base64_decoder_init_nehalem);
+    }
+#endif /* __x86_64__ */
 
   test_decode (base64_decode_generic, base64_decoder_size_generic,
                base64_decoder_init_generic);

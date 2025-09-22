@@ -1,4 +1,4 @@
-	# Fast path of Base64 decoding using AVX2.
+	# Fast path of Base64 decoding using SSE4.1 + POPCNT.
 	# Copyright (C) 2025 Du Yijie.
 	#
 	# This library is free software; you can redistribute it and/or
@@ -19,15 +19,15 @@
 
 #include "base64_decode.h"
 
-	# bool base64_decode_main_haswell(const char *restrict in,
-	#                                 idx_t *restrict inlen,
-	#                                 char *restrict out,
-	#                                 idx_t *restrict outlen);
-	.globl		base64_decode_main_haswell
-	.type		base64_decode_main_haswell, @function
+	# bool base64_decode_main_nehalem(const char *restrict in,
+	#                               idx_t *restrict inlen,
+	#                               char *restrict out,
+	#                               idx_t *restrict outlen);
+	.globl		base64_decode_main_nehalem
+	.type		base64_decode_main_nehalem, @function
 	.text
 	.p2align	6, 0x90
-base64_decode_main_haswell:
+base64_decode_main_nehalem:
 	.cfi_startproc
 	push		rbx
 	.cfi_adjust_cfa_offset	8
@@ -52,8 +52,8 @@ base64_decode_main_haswell:
 	.cfi_adjust_cfa_offset	8
 	push		rcx
 	.cfi_adjust_cfa_offset	8
-	sub		rsp, 40
-	.cfi_adjust_cfa_offset	40
+	sub		rsp, 24
+	.cfi_adjust_cfa_offset	24
 	.cfi_remember_state
 
 	# save *inlen -> rbx, out -> rbp, *outlen -> r12
@@ -64,72 +64,88 @@ base64_decode_main_haswell:
 	prefetchnta	[rdi]
 	prefetchnta	[rbp]
 
-	vbroadcasti128	ymm8, [rip+row_check]
-	vbroadcasti128	ymm9, [rip+column_check]
-	vbroadcasti128	ymm10, [rip+offsets]
-	vpbroadcastw	ymm11, [rip+sixtythird]
-	vpbroadcastw	ymm12, [rip+sixtythird_indexdiff]
-	vpbroadcastd	ymm5, [rip+low4_mask]
-	vpbroadcastd	ymm13, [rip+swapmerge1]
-	vpbroadcastd	ymm14, [rip+swapmerge2]
-	vmovdqa		ymm6, [rip+storemask]
-	vmovdqa		ymm7, [rip+shuffle2]
-	vbroadcasti128	ymm15, [rip+shuffle1]
+	movdqa		xmm11, [rip+sixtythird]
+	movdqa		xmm12, [rip+sixtythird_indexdiff]
+	movdqa		xmm7, [rip+low4_mask]
+	movdqa		xmm13, [rip+swapmerge1]
+	movdqa		xmm14, [rip+swapmerge2]
+	movdqa		xmm15, [rip+shuffle1]
 
-	cmp		rbx, 32
+	cmp		rbx, 16
 	jbe		.Llast
 	jmp		.Lhot
 
 .macro	decode_block
 	# check validity
-	vpsrlw		ymm2, ymm0, 4
-	vpand		ymm1, ymm0, ymm5
-	vpand		ymm2, ymm2, ymm5
-	vpshufb		ymm1, ymm8, ymm1
-	vpshufb		ymm3, ymm9, ymm2
-	vptest		ymm1, ymm3
+	movdqa		xmm1, xmm0
+	movdqa		xmm2, xmm0
+	movdqa		xmm3, [rip+row_check]
+	movdqa		xmm4, [rip+column_check]
+	psrlw		xmm2, 4
+	pand		xmm1, xmm7
+	pand		xmm2, xmm7
+	pshufb		xmm3, xmm1
+	pshufb		xmm4, xmm2
+	ptest		xmm3, xmm4
 	jnz		.Lreject
 	# map from base64 to index
-	vpshufb		ymm2, ymm10, ymm2
-	vpcmpeqb	ymm1, ymm0, ymm11
-	vpand		ymm1, ymm1, ymm12
-	vpaddb		ymm0, ymm0, ymm1
-	vpaddb		ymm0, ymm0, ymm2
+	movdqa		xmm1, xmm0
+	movdqa		xmm3, [rip+offsets]
+	pshufb		xmm3, xmm2
+	pcmpeqb		xmm1, xmm11
+	pand		xmm1, xmm12
+	paddb		xmm0, xmm1
+	paddb		xmm0, xmm3
 	# swizzle to 3 raw bytes
-	vpmaddubsw	ymm0, ymm0, ymm13
-	vpmaddwd	ymm0, ymm0, ymm14
+	pmaddubsw	xmm0, xmm13
+	pmaddwd		xmm0, xmm14
 	# pack
-	vpshufb		ymm0, ymm0, ymm15
-	vpermd		ymm0, ymm7, ymm0
-	# result in ymm0
+	pshufb		xmm0, xmm15
+	# result in xmm0
 .endm
 
 	.p2align	6, 0x90
 # LLVM-MCA-BEGIN hot loop
 .Lhot:
-	prefetchnta	[rdi+32]
-	prefetchnta	[rbp+24]
+	prefetchnta	[rdi+16]
+	prefetchnta	[rbp+12]
 
-	vmovdqu		ymm0, [rdi]
+	movdqu		xmm0, [rdi]
 	decode_block
-	add		rdi, 32
-	sub		rbx, 32
+	add		rdi, 16
+	sub		rbx, 16
 
 	# store
-	cmp		r12, 24
+	cmp		r12, 12
 	jb		.Ltruncate_output
-	vpmaskmovd	[rbp], ymm6, ymm0
-	add		rbp, 24
-	sub		r12, 24
-	cmp		rbx, 32
+	cmp		r12, 16
+	jb		.Lstore_less_than_16bytes
+	movdqu		[rbp], xmm0
+	add		rbp, 12
+	sub		r12, 12
+
+	cmp		rbx, 16
 	jbe		.Llast
 	jmp		.Lhot
 # LLVM-MCA-END hot loop
 
+	.p2align	3, 0x90
+.Lstore_less_than_16bytes:
+	movdqa		[rsp], xmm0
+	mov		r13, rdi
+	mov		rdi, rbp
+	mov		rsi, rsp
+	mov		rcx, 12
+	rep movsb
+	mov		rdi, r13
+	add		rbp, 12
+	sub		r12, 12
+	jmp		.Lhot
+
 	# not enough bytes to store
 	.p2align	3, 0x90
 .Ltruncate_output:
-	vmovdqu		[rsp], ymm0
+	movdqa		[rsp], xmm0
 	# only output in multiple of 3 bytes for caller's sanity
 	imul		r13d, r12d, 0xaaab
 	shr		r13d, 17
@@ -140,12 +156,12 @@ base64_decode_main_haswell:
 	# save input/output processed, then memcpy
 	mov		rdi, rbp
 	mov		rsi, rsp
-	mov		rdx, r13
-	call		memcpy@PLT
+	mov		rcx, r13
+	rep movsb
 
 	# write input and output processed
-	mov		rsi, [rsp+48]
-	mov		rdi, [rsp+40]
+	mov		rsi, [rsp+32]
+	mov		rdi, [rsp+24]
 	sub		rbx, r14
 	sub		r12, r13
 	sub		[rsi], rbx
@@ -161,8 +177,8 @@ base64_decode_main_haswell:
 	jz		.Lnoinput
 
 	# fill the input buffer
-	vpbroadcastd	ymm2, [rip+base64_zeros]
-	vmovdqu		[rsp], ymm2
+	movdqa		xmm2, [rip+base64_zeros]
+	movdqa		[rsp], xmm2
 
 	# only load input in multiples of 4 bytes
 	mov		r13, rbx
@@ -175,16 +191,16 @@ base64_decode_main_haswell:
 	# copy final block to stack and load
 	mov		rsi, rdi
 	mov		rdi, rsp
-	mov		rdx, r13
-	call		memcpy@PLT
+	mov		rcx, r13
+	rep movsb
 
 	# check for padding
-	vmovdqu		ymm0, [rsp]
-	vpbroadcastd	ymm1, [rip+padding]
-	vpbroadcastd	ymm2, [rip+base64_zeros]
-	vpcmpeqb	ymm3, ymm0, ymm1
-	vpmovmskb	eax, ymm3
-	tzcnt		ecx, eax # position of first padding
+	movdqa		xmm0, [rsp]
+	movdqa		xmm1, [rip+padding]
+	movdqa		xmm2, [rip+base64_zeros]
+	pcmpeqb		xmm1, xmm0
+	pmovmskb	eax, xmm1
+	bsf		ecx, eax # position of first padding
 	popcnt		eax, eax # number of padding bytes
 	cmovz		rcx, r13
 	# reject most cases of illegal paddings
@@ -196,9 +212,10 @@ base64_decode_main_haswell:
 	cmp		edx, eax
 	jne		.Lreject
 	# replace padding with base64 zero in input vector
-	vpand		ymm2, ymm2, ymm3
-	vpandn		ymm0, ymm3, ymm0
-	vpor		ymm0, ymm0, ymm2
+	pand		xmm2, xmm1
+	pandn		xmm1, xmm0
+	por		xmm1, xmm2
+	movdqa		xmm0, xmm1
 	# update bytes to output
 	sub		r14, rax
 
@@ -220,17 +237,17 @@ base64_decode_main_haswell:
 
 .Ldecode_last:
 	decode_block
-	vmovdqu		[rsp], ymm0
+	movdqu		[rsp], xmm0
 
 	# output
 	mov		rdi, rbp
 	mov		rsi, rsp
-	mov		rdx, r14
-	call		memcpy@PLT
+	mov		rcx, r14
+	rep movsb
 
 	# write *inlen and *outlen
-	mov		rdi, [rsp+48]
-	mov		rsi, [rsp+40]
+	mov		rdi, [rsp+32]
+	mov		rsi, [rsp+24]
 	sub		rbx, r13
 	sub		r12, r14
 	sub		[rdi], rbx
@@ -244,8 +261,8 @@ base64_decode_main_haswell:
 	test		r15, r15
 	cmovnz		eax, edx
 .Lcleanup:
-	add		rsp, 56
-	.cfi_adjust_cfa_offset	-56
+	add		rsp, 40
+	.cfi_adjust_cfa_offset	-40
 	pop		r15
 	.cfi_restore		r15
 	.cfi_adjust_cfa_offset	-8
@@ -272,7 +289,7 @@ base64_decode_main_haswell:
 	.cfi_restore_state
 	# the entire input is processed so no need to update *inlen.
 	# *outlen is updated as usual.
-	mov		rdi, [rsp+40]
+	mov		rdi, [rsp+24]
 	sub		[rdi], r12
 	xor		eax, eax
 	jmp		.Lcleanup
@@ -281,16 +298,35 @@ base64_decode_main_haswell:
 	.p2align	3, 0x90
 .Lreject:
 	# write *inlen and *outlen
-	mov		rdi, [rsp+48]
-	mov		rdx, [rsp+40]
+	mov		rdi, [rsp+32]
+	mov		rdx, [rsp+24]
 	sub		[rdi], rbx
 	sub		[rdx], r12
 	mov		eax, BASE64_DECODE_REJECTED
 	jmp		.Lcleanup
 	.cfi_endproc
-	.size		base64_decode_main_haswell, .-base64_decode_main_haswell
+	.size		base64_decode_main_nehalem, .-base64_decode_main_nehalem
 
 	.section	.rodata, "a", @progbits
+	.p2align	6, 0x90
+sixtythird:
+	.ascii		"////////////////"
+sixtythird_indexdiff:
+	.fill		16, 1, -1
+sixtythird_url:
+	.ascii		"________________"
+sixtythird_indexdiff_url:
+	.byte		16, 1, -4
+	.p2align	6, 0x90
+low4_mask:
+	.fill		16, 1, 0xf
+swapmerge1:
+	.fill		8, 2, 0x0140
+swapmerge2:
+	.fill		4, 4, 0x00011000
+shuffle1:
+	.byte		0x02, 0x01, 0x00, 0x06, 0x05, 0x04, 0x0a, 0x09
+	.byte		0x08, 0x0e, 0x0d, 0x0c, 0xff, 0xff, 0xff, 0xff
 	.p2align	6, 0x90
 row_check:
 	.byte		0x15, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11
@@ -301,17 +337,8 @@ column_check:
 offsets:
 	.byte		0, 16, 19, 4, -65, -65, -71, -71
 	.byte		0, 0, 0, 0, 0, 0, 0, 0
-sixtythird:
-	.ascii		"//"
-sixtythird_indexdiff:
-	.byte		-1, -1
-low4_mask:
-	.long		0x0f0f0f0f
-swapmerge1:
-	.byte		0x40, 0x01, 0x40, 0x01
-swapmerge2:
-	.word		0x1000, 0x0001
-
+padding:
+	.ascii		"================"
 	.p2align	6, 0x90
 row_check_url:
 	.byte		0x95, 0x91, 0x91, 0x91, 0x91, 0x91, 0x91, 0x91
@@ -322,27 +349,5 @@ column_check_url:
 offsets_url:
 	.byte		0, -32, 17, 4, -65, -65, -71, -71
 	.byte		0, 0, 0, 0, 0, 0, 0, 0
-sixtythird_url:
-	.ascii		"__"
-sixtythird_indexdiff_url:
-	.byte		-4, -4
-low4_mask_url:
-	.long		0x0f0f0f0f
-swapmerge1_url:
-	.byte		0x40, 0x01, 0x40, 0x01
-swapmerge2_url:
-	.word		0x1000, 0x0001
-
-	.p2align	6, 0x90
-storemask:
-	.long		-1, -1, -1, -1, -1, -1, 0, 0
-shuffle2:
-	.long		0, 1, 2, 4, 5, 6, -1, -1
-	.p2align	6, 0x90
-shuffle1:
-	.byte		0x02, 0x01, 0x00, 0x06, 0x05, 0x04, 0x0a, 0x09
-	.byte		0x08, 0x0e, 0x0d, 0x0c, 0xff, 0xff, 0xff, 0xff
-padding:
-	.ascii		"===="
 base64_zeros:
-	.ascii		"AAAA"
+	.ascii		"AAAAAAAAAAAAAAAA"

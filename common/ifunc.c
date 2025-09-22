@@ -56,7 +56,7 @@ resolve_base64url_encode (void)
     {
       return base64url_encode_haswell;
     }
-  else
+  else if (__builtin_cpu_supports ("ssse3"))
     {
       return base64url_encode_core2;
     }
@@ -79,6 +79,10 @@ resolve_base64_decoder_size (void)
     {
       return base64_decoder_size_haswell;
     }
+  else if (__builtin_cpu_supports("sse4.1") && __builtin_cpu_supports("popcnt"))
+    {
+      return base64_decoder_size_nehalem;
+    }
 #endif
 
   return base64_decoder_size_generic;
@@ -98,6 +102,10 @@ resolve_base64_decoder_init (void)
     {
       return base64_decoder_init_haswell;
     }
+  else if (__builtin_cpu_supports("sse4.1") && __builtin_cpu_supports("popcnt"))
+    {
+      return base64_decoder_init_nehalem;
+    }
 #endif
 
   return base64_decoder_init_generic;
@@ -116,6 +124,10 @@ resolve_base64_decode (void)
   else if (__builtin_cpu_supports ("avx2"))
     {
       return base64_decode_haswell;
+    }
+  else if (__builtin_cpu_supports("sse4.1") && __builtin_cpu_supports("popcnt"))
+    {
+      return base64_decode_nehalem;
     }
 #endif
 
