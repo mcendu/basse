@@ -74,3 +74,6 @@ a.out
 
 # clangd
 .cache/
+
+# Kate
+*.kate-swp
