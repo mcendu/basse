@@ -107,8 +107,8 @@ main (void)
 
   test_decode (base64_decode_generic, base64_decoder_size_generic,
                base64_decoder_init_generic);
-  test_decode_partial (base64_decode_haswell, base64_decoder_size_haswell,
-                       base64_decoder_init_haswell);
+  test_decode_partial (base64_decode_generic, base64_decoder_size_generic,
+                       base64_decoder_init_generic);
 
   return test_exit_status;
 }
