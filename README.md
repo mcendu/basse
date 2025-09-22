@@ -9,7 +9,8 @@ Build prerequisites:
   - Linux. Could also build on some BSDs &ndash; modify the root
     `meson.build` to see for sure. You need to count on WSL if
     you use Windows.
-  - A C11 compiler. [GCC] and [Clang] are preferred.
+  - A C11 compiler supporting GNU extensions. [GCC] and [Clang] are
+    preferred.
   - [Meson] 1.0.0 or later.
 
 To build:
