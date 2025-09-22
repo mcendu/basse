@@ -43,7 +43,7 @@ base64_encode_haswell:
 	prefetchnta	[rdx]
 
 	vmovdqa		ymm6, [rip+loadmask]
-	vbroadcasti128	ymm7, [rip+shufflemask]
+	vmovdqa		ymm7, [rip+shufflemask]
 	vpbroadcastd	ymm8, [rip+unit02_mask]
 	vpbroadcastd	ymm9, [rip+unit13_mask]
 	vpbroadcastd	ymm10, [rip+unit02_mulhi]
@@ -248,7 +248,7 @@ loadmask:
 shufflemask:
 	# 11112222 22333333 00000011 11112222
 	.long		0x05060405, 0x08090708, 0x0b0c0a0b, 0x0e0f0d0e
-	.long		0x01020001, 0x04050304, 0x07080607, 0x090a0809
+	.long		0x01020001, 0x04050304, 0x07080607, 0x0a0b090a
 
 	.p2align	6, 0x0
 unit02_mask:
