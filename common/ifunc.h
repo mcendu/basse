@@ -98,4 +98,22 @@ extern bool base64_decode_znver4 (struct base64_decoder *restrict ctx,
 
 #endif /* __x86_64__ */
 
+#ifdef __aarch64__
+
+/* Functions for 64-bit ARM processors. */
+
+extern void base64_encode_aarch64 (const char *restrict in, size_t inlen,
+                                   char *restrict out, size_t outlen);
+extern void base64url_encode_aarch64 (const char *restrict in, size_t inlen,
+                                      char *restrict out, size_t outlen);
+
+extern size_t base64_decoder_size_aarch64 ();
+extern void base64_decoder_init_aarch64 (struct base64_decoder *restrict ctx);
+extern bool base64_decode_aarch64 (struct base64_decoder *restrict ctx,
+                                   const char *restrict in, size_t inlen,
+                                   char *restrict out,
+                                   size_t *restrict outlen);
+
+#endif /* __aarch64__ */
+
 #endif /* !IFUNC_H */

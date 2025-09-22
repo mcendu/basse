@@ -46,6 +46,8 @@ if host_machine.cpu_family() == 'x86_64'
     subdir('nehalem')
     subdir('haswell')
     subdir('znver4')
+elif host_machine.cpu_family() == 'aarch64'
+    subdir('aarch64')
 endif
 
 lib = library('basse',

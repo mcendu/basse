@@ -90,7 +90,7 @@ main (void)
                    base64_decoder_init_haswell);
     }
 
-  if (__builtin_cpu_supports ("sse4.1") && __builtin_cpu_supports("popcnt"))
+  if (__builtin_cpu_supports ("sse4.1") && __builtin_cpu_supports ("popcnt"))
     {
       test_decode (base64_decode_nehalem, base64_decoder_size_nehalem,
                    base64_decoder_init_nehalem);
@@ -101,6 +101,10 @@ main (void)
       test_encode (base64_encode_core2);
     }
 #endif /* __x86_64__ */
+
+#ifdef __aarch64__
+  test_encode (base64_encode_aarch64);
+#endif
 
   test_encode (base64_encode_generic);
   test_decode (base64_decode_generic, base64_decoder_size_generic,

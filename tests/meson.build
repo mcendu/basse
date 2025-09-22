@@ -19,8 +19,8 @@ test(
 )
 
 test(
-    'test_newline',
-    executable('test_newline', 'test_newline.c', dependencies: lib_dep)
+    'test_long',
+    executable('test_long', 'test_long.c', dependencies: lib_dep)
 )
 
 test(
